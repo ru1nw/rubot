@@ -46,7 +46,7 @@ async def on_message(message):
         await message.channel.send("Hello!")
 
     msg = message.content.lower()
-    if msg.startswith("im ") or msg.startswith("i'm ") or msg.startswith("i am "):
+    if msg.startswith("im ") or msg.startswith("i'm ") or msg.startswith("i am ") or msg.startswith("i’m "):
         await message.channel.send(f"hi {message.content[(msg.find('m ') + 2):]}!")
 
     for i in range(len(msg)):
@@ -54,7 +54,7 @@ async def on_message(message):
             if msg[i+2:i+4] == "m ":
                 await message.channel.send(f"hi {message.content[i+4:]}!")
                 break
-            elif msg[i+2:i+5] == "'m ":
+            elif msg[i+2:i+5] in ["'m ", "’m "]:
                 await message.channel.send(f"hi {message.content[i+5:]}!")
                 break
             elif msg[i+2:i+5] == " am":
