@@ -1,3 +1,4 @@
+from user_ratings import User_Ratings
 import discord
 from datetime import datetime, timedelta
 from random import randint
@@ -18,8 +19,13 @@ ARROW_BACKWARD_EMOJI = "◀"
 ARROW_FORWARD_EMOJI = "▶"
 CIRCLE_EMOJI = "⭕"
 CROSS_EMOJI = "❌"
+STAR_EMOJI = "⭐"
 
 BUG_REPORT_QUESTION = "[INFO] do you want to report a bug?"
+RATING_OPTIN_QUESTION = """[ERR] you are not opt in to the rating system; do you want to opt in to the rating system?
+the bot will record your discord information including id, name, and the time when you send a rating;
+none of these information will be used other than this user rating feature for this bot.
+react to circle if you want to opt in, or react to cross if you do not want to opt in."""
 
 intents = discord.Intents.default()
 intents.members = True
@@ -84,10 +90,44 @@ async def on_message(message):
         else:
             await message.reply(CAR_EMOJI_FLIPPED)
 
+    if message.content.startswith("[ru]rating") or message.content.startswith("[ru] rating"):
+        if len(message.mentions) != 1:
+            await message.reply("please mention 1 and only 1 user")
+            return
+
+        receiver = message.mentions[0]
+        if not await User_Ratings.check_user(message.author.id):
+            optinmsg = await message.reply(RATING_OPTIN_QUESTION)
+            await optinmsg.add_reaction(CIRCLE_EMOJI)
+            await optinmsg.add_reaction(CROSS_EMOJI)
+        elif not await User_Ratings.check_user(receiver.id):
+            await message.reply(f"[ERR] {receiver} hasn't agree to opt in to the rating system")
+        elif message.mentions[0] == message.author:
+            await message.reply("you can't rate yourself")
+        elif (change := message.content.count(STAR_EMOJI)) < 1 or change > 5:
+            await message.reply("you can rate 1 to 5 stars")
+        else:
+            rating = await User_Ratings.rate(receiver=receiver.id, rater=message.author.id, change=change)
+            if rating == -1:
+                cd = await User_Ratings.check_time(receiver.id, message.author.id)
+                await message.reply(f"you are on cooldown: {cd.seconds // 60}:{cd.seconds % 60} left")
+            elif rating > 5:
+                await message.channel.send(f"[INFO] {receiver} already has a maximum rating of 5.000!")
+            elif rating < 1:
+                await message.channel.send(f"[INFO] {receiver} already has a minimum rating of 1.000!")
+            else:
+                await message.channel.send(f"[INFO] {receiver} now has a rating of {eval(format(rating, '.3f'))}!")
+
     if (message.content in [FLAG_RU, "[ru]", "ru", "rubot", "rwr"]):
         if (message.content == FLAG_RU) and ((message.guild.id == HOMIE_SERVER_ID) or (message.guild.id == TEST_SERVER_ID)):
             await message.channel.send("hey its the flag of ru")
-        await message.channel.send(f'rubot v1.0 created by {client.get_user(MY_USER_ID).mention} with discordpy\nhelp:```yaml\ninfo:        "[ru]" or ":flag_ru:"\nschedule:    "[ru] schedule (mention someone)"\nbug:         "[ru] bug (message)"\n```')
+        await message.channel.send(f'''rubot v1.0 created by {client.get_user(MY_USER_ID).mention} with discordpy
+help:```yaml
+info:        "[ru]" or ":flag_ru:"
+schedule:    "[ru] schedule *(mention someone)"
+bug:         "[ru] bug (message)"
+rating:      "[ru] rating *(user) *(1-5 star emojis)"
+```* required''')
 
     if (message.guild.id in [HOMIE_SERVER_ID, TEST_SERVER_ID]) and ((message.content.startswith("[ru] schedule")) or (message.content.startswith("[ru]schedule"))):
         if len(message.mentions) != 1:
@@ -240,6 +280,16 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         elif str(payload.emoji) == CROSS_EMOJI:
             await msg.clear_reactions()
             await msg.edit(content="[INFO] bug report canceled")
+        return
+
+    if (msg.content == RATING_OPTIN_QUESTION) and (msg.author == client.get_user(BOT_USER_ID)) and (payload.member == msg.mentions[0]):
+        if str(payload.emoji) == CIRCLE_EMOJI:
+            await msg.clear_reactions()
+            await msg.edit(content="[INFO] you're now opt in to the rating system")
+            await User_Ratings.init(payload.member.id)
+        elif str(payload.emoji) == CROSS_EMOJI:
+            await msg.clear_reactions()
+            await msg.edit(content="[INFO] opt in cancelled")
         return
 
 @client.event
