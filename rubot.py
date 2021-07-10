@@ -50,6 +50,9 @@ async def on_message(message):
     special = False
     if (float(message.channel.id) in await CD.get_exceptions()) and (await CD.get_special_counter() >= await CD.get_special()):
         if (await CD.get_special_counter() > await CD.get_special()):
+            if (message.content in ["[ru] rm cd", "[ru] remove cooldown", "[ru] cooldown"]) and ((message.author.id == MY_USER_ID) or (message.author.guild_permissions.administrator)):
+                await CD.reset_special_counter()
+                await message.channel.send("[INFO] cooldown removed")
             return
         await CD.add_counter(True)
         await message.channel.send("[ERR] message limit reached, bot on cooldown, ask a moderator or the creator to remove the cd")
