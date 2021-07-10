@@ -136,7 +136,7 @@ async def on_message(message):
     if (message.content in [FLAG_RU, "[ru]", "ru", "rubot", "rwr"]):
         if (message.content == FLAG_RU) and ((message.guild.id == HOMIE_SERVER_ID) or (message.guild.id == TEST_SERVER_ID)):
             await message.channel.send("hey its the flag of ru")
-        await message.channel.send(f'''rubot v1.0 created by {client.get_user(MY_USER_ID).mention} with discordpy
+        await message.channel.send(f'''rubot v1.2 created by {client.get_user(MY_USER_ID).mention} with discordpy
 help:```yaml
 info:        "[ru]" or ":flag_ru:"
 schedule:    "[ru] schedule *(mention someone)"
