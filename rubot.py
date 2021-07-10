@@ -1,3 +1,4 @@
+from cd import CD
 from user_ratings import User_Ratings
 import discord
 from datetime import datetime, timedelta
@@ -46,7 +47,16 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if (message.author.bot) and (message.author.id != 0):
+    special = False
+    if (float(message.channel.id) in await CD.get_exceptions()) and (await CD.get_special_counter() >= await CD.get_special()):
+        if (await CD.get_special_counter() > await CD.get_special()):
+            return
+        await CD.add_counter(True)
+        await message.channel.send("[ERR] message limit reached, bot on cooldown, ask a moderator or the creator to remove the cd")
+        return
+    elif float(message.channel.id) in (await CD.get_exceptions()):
+        special = True
+    elif (message.author.bot):
         return
 
     if message.content.startswith("$hello"):
@@ -90,6 +100,7 @@ async def on_message(message):
             await message.reply("imma run a car over you the next time you try to spam")
         else:
             await message.reply(CAR_EMOJI_FLIPPED)
+            await CD.add_counter(special)
 
     if message.content.startswith("[ru]rating") or message.content.startswith("[ru] rating"):
         if len(message.mentions) != 1:
