@@ -142,6 +142,9 @@ info:        "[ru]" or ":flag_ru:"
 schedule:    "[ru] schedule *(mention someone)"
 bug:         "[ru] bug (message)"
 rating:      "[ru] rating *(user) *(1-5 star emojis)"
+```
+mod:```yaml
+remove cooldown: "[ru] remove cooldown" or "[ru] cooldown"
 ```* required''')
 
     if (message.guild.id in [HOMIE_SERVER_ID, TEST_SERVER_ID]) and ((message.content.startswith("[ru] schedule")) or (message.content.startswith("[ru]schedule"))):
