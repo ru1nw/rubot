@@ -11,6 +11,10 @@ help:
 
 *required
 
+mods:
+
+ - remove cooldown: "[ru] remove cooldown" or "[ru] cooldown"
+
 other features:
 
  - replies "nice" when there's 69 or 420
