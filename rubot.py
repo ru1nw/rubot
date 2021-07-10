@@ -45,7 +45,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.author.bot:
+    if (message.author.bot) and (message.author.id != 0):
         return
 
     if message.content.startswith("$hello"):
