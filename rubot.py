@@ -45,7 +45,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author.bot:
         return
 
     if message.content.startswith("$hello"):
@@ -184,7 +184,7 @@ emoji_to_role = {
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     msg = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    if msg.created_at < (now() - timedelta(hours=6)):
+    if (msg.created_at < (now() - timedelta(hours=6))) or (payload.member.bot):
         return
     
     if payload.message_id == role_message_id:
@@ -295,7 +295,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     msg = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    if msg.created_at < (now() - timedelta(hours=6)):
+    if (msg.created_at < (now() - timedelta(hours=6))) or (payload.member.bot):
         return
     
     if payload.message_id != role_message_id:
