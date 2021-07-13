@@ -41,6 +41,12 @@ async def on_message(message):
         return
 
     # legit commands
+    if content.startswith("rutk ") and (author.id == ID.MY_USER_ID):
+        content = content[5:]
+        old = message
+        e = None if (len(old.embeds) < 1) else old.embeds[0]
+        message = await channel.send(content, embed=e, files=[await f.to_file() for f in old.attachments], reference=old.reference)
+        await old.delete()
     if content.startswith("[ru]"):
         if content.startswith("[ru] rating"):
             await rating(message, author, channel, content, mentions)
