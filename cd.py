@@ -19,7 +19,8 @@ class CD(Firebase):
         return cls.doc_ref.get().to_dict()[u'special-counter']
 
     @classmethod
-    async def set_special(cls, *, msg_count = doc_ref.get().to_dict()[u'special-msg-count']):
+    async def set_special(
+            cls, *, msg_count = doc_ref.get().to_dict()[u'special-msg-count']):
         cls.doc_ref.set({
             u'special-msg-count': msg_count
         }, merge=True)
@@ -64,7 +65,8 @@ class CD(Firebase):
         return cls.doc_ref.get().to_dict()[u'normal-counter']
 
     @classmethod
-    async def set_normal(cls, *, msg_count = doc_ref.get().to_dict()[u'normal-msg-count']):
+    async def set_normal(
+            cls, *, msg_count = doc_ref.get().to_dict()[u'normal-msg-count']):
         cls.doc_ref.set({
             u'normal-msg-count': msg_count
         }, merge=True)
