@@ -1,37 +1,17 @@
 from cd import CD
 from user_ratings import User_Ratings
+from role import Role
+from constants import ID, UnicodeEmoji, InfoText, Token
 import discord
 from datetime import datetime, timedelta
 from random import randint
+import re
 now = datetime.utcnow
-
-TEST_SERVER_ID = 0
-TEST_CHANNEL_ID = 0
-INFO_CHANNEL_ID = 0
-HOMIE_SERVER_ID = 0
-HOMIE_SCHEDULES_CHANNEL_ID = 0
-MY_USER_ID = 0
-BOT_USER_ID = 0
-
-CAR_EMOJI = "🚙"
-CAR_EMOJI_FLIPPED = "<:upsidedowncar:0>"
-FLAG_RU = "🇷🇺"
-ARROW_BACKWARD_EMOJI = "◀"
-ARROW_FORWARD_EMOJI = "▶"
-CIRCLE_EMOJI = "⭕"
-CROSS_EMOJI = "❌"
-STAR_EMOJI = "⭐"
-
-BUG_REPORT_QUESTION = "[INFO] do you want to report a bug?"
-RATING_OPTIN_QUESTION = """[ERR] you are not opt in to the rating system; do you want to opt in to the rating system?
-the bot will record your discord information including id, name, and the time when you send a rating;
-none of these information will be used other than this user rating feature for this bot.
-react to circle if you want to opt in, or react to cross if you do not want to opt in.
-**warning**: the algorithm of this rating system is subjected to change, so the ratings is very likely to be reset in the future"""
 
 intents = discord.Intents.default()
 intents.members = True
-client = discord.Client(intents = intents)
+client = discord.Client(intents=intents)
+
 
 @client.event
 async def on_ready():
@@ -39,207 +19,78 @@ async def on_ready():
     
     print("We have logged in as {0.user}".format(client))
 
-    channel = client.get_guild(TEST_SERVER_ID).get_channel(INFO_CHANNEL_ID)
+    channel = client.get_guild(ID.TEST_SERVER_ID.value).get_channel(ID.INFO_CHANNEL_ID.value)
     if reason == '':
         await channel.send(f"[INFO] bot restarted at UTC <{now()}>")
     else:
         await channel.send(f"[INFO] bot restarted at UTC <{now()}>, reason: {reason}")
 
+
 @client.event
 async def on_message(message):
-    special = False
-    if (str(message.channel.id) in await CD.get_exceptions()) and (await CD.get_special_counter() >= await CD.get_special()):
-        if (await CD.get_special_counter() > await CD.get_special()):
-            if (message.content in ["[ru] rm cd", "[ru] remove cooldown", "[ru] cooldown"]) and ((message.author.id == MY_USER_ID) or (message.author.guild_permissions.administrator)):
-                await CD.reset_special_counter()
-                await message.channel.send("[INFO] cooldown removed")
-            return
-        await CD.add_counter(True)
-        await message.channel.send("[ERR] message limit reached, bot on cooldown, ask a moderator or the creator to remove the cd")
-        return
-    elif str(message.channel.id) in (await CD.get_exceptions()):
-        special = True
-    elif (message.author.bot):
+    author = message.author
+    guild = message.guild
+    channel = message.channel
+    content = message.content.lower()
+    mentions = message.mentions
+
+    if (special := (await check_cd(message, author, channel, content))) == None:
         return
 
-    if message.content.startswith("$hello"):
-        await message.channel.send("Hello!")
-
-    msg = message.content.lower()
-    if msg.startswith("im ") or msg.startswith("i'm ") or msg.startswith("i am ") or msg.startswith("i’m "):
-        await message.channel.send(f"hi {message.content[(msg.find('m ') + 2):]}!")
-
-    for i in range(len(msg)):
-        if msg[i:i+2] == " i":
-            if msg[i+2:i+4] == "m ":
-                await message.channel.send(f"hi {message.content[i+4:]}!")
-                break
-            elif msg[i+2:i+5] in ["'m ", "’m "]:
-                await message.channel.send(f"hi {message.content[i+5:]}!")
-                break
-            elif msg[i+2:i+5] == " am":
-                await message.channel.send(f"hi {message.content[i+5:]}!")
-                break
-
-    if ("69" in message.content) or ("420" in message.content):
-        nicecount = message.content.count("69") + message.content.count("420")
-        if not (len(message.mentions) == 0):
-            for m in message.mentions:
-                nicecount -= (str(m.id).count("69") + str(m.id).count("420"))
-        for i in range(len(message.content)):
-            left = message.content.find("<", i)
-            right = message.content.find(">", left)
-            sub = message.content[left:right]
-            nicecount -= (sub.count("69") + sub.count("420"))
-            i = right
-        nicestr = ""
-        for i in range(nicecount):
-            nicestr += "nice "
-        if not (len(nicestr) == 0):
-            await message.reply(nicestr)
-
-    if CAR_EMOJI in message.content:
-        if (message.content.count(CAR_EMOJI) > 1):
-            await message.reply("imma run a car over you the next time you try to spam")
-        else:
-            await message.reply(CAR_EMOJI_FLIPPED)
-            await CD.add_counter(special)
-
-    if message.content.startswith("[ru]rating") or message.content.startswith("[ru] rating"):
-        if len(message.mentions) != 1:
-            await message.reply("please mention 1 and only 1 user")
-            return
-
-        receiver = message.mentions[0]
-        if not await User_Ratings.check_user(message.author.id):
-            optinmsg = await message.reply(RATING_OPTIN_QUESTION)
-            await optinmsg.add_reaction(CIRCLE_EMOJI)
-            await optinmsg.add_reaction(CROSS_EMOJI)
-        elif not await User_Ratings.check_user(receiver.id):
-            await message.reply(f"[ERR] {receiver} hasn't agree to opt in to the rating system")
-        elif message.mentions[0] == message.author:
-            await message.reply("you can't rate yourself")
-        elif (change := message.content.count(STAR_EMOJI)) < 1 or change > 5:
-            await message.reply("you can rate 1 to 5 stars")
-        else:
-            rating = await User_Ratings.rate(receiver=receiver.id, rater=message.author.id, change=change)
-            if rating == -1:
-                cd = await User_Ratings.check_time(receiver.id, message.author.id)
-                await message.reply(f"you are on cooldown: {cd.seconds // 60}:{cd.seconds % 60} left")
-            elif rating > 5:
-                await message.channel.send(f"[INFO] {receiver} already has a maximum rating of 5.000!")
-            elif rating < 1:
-                await message.channel.send(f"[INFO] {receiver} already has a minimum rating of 1.000!")
+    # legit commands
+    if content.startswith("[ru]"):
+        if content.startswith("[ru] rating"):
+            await rating(message, author, channel, content, mentions)
+        elif message.content in ("[ru]", "[ru] help", "[ru] menu", "[ru] info"):
+            await info(guild, channel, content)
+        elif (message.guild.id in (ID.HOMIE_SERVER_ID.value, ID.TEST_SERVER_ID.value)) and message.content.startswith("[ru] schedule"):
+            await first_schedule(guild, channel, mentions)
+        elif message.content.startswith("[ru] bug"):
+            await bug(channel, content)
+        elif message.content.startswith("[ru] role"):
+            if author.permissions_in(channel).administrator:
+                await role(message, guild, content)
             else:
-                await message.channel.send(f"[INFO] {receiver} now has a rating of {eval(format(rating, '.3f'))}!")
+                await message.reply("[ERR] this is an administrator-only command!")
 
-    if (message.content in [FLAG_RU, "[ru]", "ru", "rubot", "rwr"]):
-        if (message.content == FLAG_RU) and ((message.guild.id == HOMIE_SERVER_ID) or (message.guild.id == TEST_SERVER_ID)):
-            await message.channel.send("hey its the flag of ru")
-        await message.channel.send(f'''rubot v1.2 created by {client.get_user(MY_USER_ID).mention} with discordpy
-help:```yaml
-info:        "[ru]" or ":flag_ru:"
-schedule:    "[ru] schedule *(mention someone)"
-bug:         "[ru] bug (message)"
-rating:      "[ru] rating *(user) *(1-5 star emojis)"
-```
-mod:```yaml
-remove cooldown: "[ru] remove cooldown" or "[ru] cooldown"
-```* required''')
-
-    if (message.guild.id in [HOMIE_SERVER_ID, TEST_SERVER_ID]) and ((message.content.startswith("[ru] schedule")) or (message.content.startswith("[ru]schedule"))):
-        if len(message.mentions) != 1:
-            await message.channel.send("[ERR] please specify one user and one only")
-        else:
-            channel_id = HOMIE_SCHEDULES_CHANNEL_ID if (message.guild.id == HOMIE_SERVER_ID) else TEST_CHANNEL_ID
-            pic_info_msg = await message.channel.send(f"[INFO] looking for images sent by <{message.mentions[0].display_name}> in {client.get_channel(channel_id).mention}, please wait patiently as there are lots of messages!")
-            target = message.mentions[0]
-            pic = await find_pic(channel = channel_id, target_id = target.id)
-            if pic == None:
-                await pic_info_msg.edit("[INFO] no images found!")
-            else:
-                pic_dict = {
-                    "title": "schedule finder",
-                    "description": "",
-                    "url": pic.jump_url,
-                    "timestamp": pic.created_at.isoformat(),
-                    "color": 65535,
-                    "footer": {
-                        "text": "if more than 1 image is found, use the arrow emojis to see other images"
-                        },
-                    "image": {
-                        "url": ""
-                        },
-                    "author": {
-                        "name": target.name,
-                        "icon_url": f"https://cdn.discordapp.com/avatars/{target.id}/{target.avatar}.png"
-                        }
-                    }
-                pic_dict["description"] = pic.attachments[0].filename if (len(pic.attachments) > 0) else pic.content[pic.content.rfind('/')+1:]
-                pic_dict["image"]["url"] = pic.attachments[0].url if (len(pic.attachments) > 0) else pic.content[pic.content.find("https://cdn.discordapp.com/attachments"):pic.content.find(".png")+4]
-                pic_embed = discord.Embed.from_dict(pic_dict)
-                await pic_info_msg.edit(embed=pic_embed)
-                await pic_info_msg.add_reaction(ARROW_BACKWARD_EMOJI)
-                await pic_info_msg.add_reaction(ARROW_FORWARD_EMOJI)
-
-    if message.content.startswith("[ru]bug") or message.content.startswith("[ru] bug"):
-        if (randint(1,100) == 69):
-            await message.channel.send("provide ur credit card no. and the code on the back and ur social security no. to continue", delete_after=5.0)
-        bugq = await message.channel.send(f"{BUG_REPORT_QUESTION} reason: <{message.content[message.content.find('bug')+4:]}>")
-        await bugq.add_reaction(CIRCLE_EMOJI)
-        await bugq.add_reaction(CROSS_EMOJI)
+    # jokes
+    if ("69" in content) or ("420" in content):
+        await funny_number(message, content, mentions)
+    await im_joke(message, content)
+    if UnicodeEmoji.CAR_EMOJI.value in content:
+        await flip_car(message, content, special)
 
 
 
-# adapted from the example https://github.com/Rapptz/discord.py/blob/d30fea5b0dcba9cd130026b56ec01e78bd788aff/examples/reaction_roles.py
-role_message_id = 0
-emoji_to_role = {
-    discord.PartialEmoji(name=''): 0, # red
-    discord.PartialEmoji(name=''): 0, # yellow
-    discord.PartialEmoji(name=''): 0, # blue
-}
+
 
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    msg = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    if (msg.created_at < (now() - timedelta(hours=6))) or (payload.member.bot):
+    if (member := payload.member).bot:
+        return
+    guild = client.get_guild(payload.guild_id)
+    channel = guild.get_channel(payload.channel_id)
+    msg = await channel.fetch_message(payload.message_id)
+    
+    if str(payload.message_id) in (await Role.get_msg(str(payload.guild_id))):
+        await assign_role(str(payload.emoji), member, guild, channel, remove=False)
+        
+    if (msg.created_at < (now() - timedelta(hours=6))):
+        for r in msg.reactions:
+            if r.me:
+                await r.clear()
         return
     
-    if payload.message_id == role_message_id:
-        guild = client.get_guild(payload.guild_id)
-        if guild is None:
-            return
-
-        try:
-            role_id = emoji_to_role[payload.emoji]
-        except KeyError:
-            return
-
-        role = guild.get_role(role_id)
-        if role is None:
-            return
-
-        try:
-            await payload.member.add_roles(role)
-        except discord.HTTPException:
-            # If we want to do something in case of errors we'd do it here.
-            pass
-
-        channel = guild.get_channel(payload.channel_id)
-        if channel is not None:
-            await channel.send(f"[INFO] added the role <{role.name}> to the user {payload.member.display_name}!", delete_after=5.0)
-        return
-    
-    if len(pic_msg := msg.embeds) > 0 and (payload.user_id != BOT_USER_ID) and (pic_msg[0].title == "schedule finder"):
+    if len(pic_msg := msg.embeds) > 0 and (payload.user_id != client.user.id) and (pic_msg[0].title == "schedule finder"):
         for re in msg.reactions:
             if (re.me) and (str(payload.emoji)[0] == str(re.emoji)[0]):
-                channel_id = HOMIE_SCHEDULES_CHANNEL_ID if (payload.guild_id == HOMIE_SERVER_ID) else TEST_CHANNEL_ID
+                channel_id = ID.HOMIE_SCHEDULES_CHANNEL_ID.value if (payload.guild_id == ID.HOMIE_SERVER_ID.value) else ID.TEST_CHANNEL_ID.value
                 target = None
                 for m in msg.guild.members:
                     if (pic_msg[0].to_dict()["author"]['name']) == m.name:
                         target = m
                         break
-                if str(re.emoji)[0] == ARROW_BACKWARD_EMOJI:
+                if str(re.emoji)[0] == UnicodeEmoji.ARROW_BACKWARD_EMOJI.value:
                     if (pic := await find_pic(channel=channel_id, before_date=pic_msg[0].timestamp, old_to_new=False, target_id = target.id)) == None:
                         pic_dict = pic_msg[0].to_dict()
                         pic_dict["description"] = "no more images found!"
@@ -248,7 +99,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                         pic_dict.update({"image": {"url": ""}})
                         pic_embed = discord.Embed.from_dict(pic_dict)
                         await msg.edit(embed=pic_embed)
-                        await msg.remove_reaction(ARROW_BACKWARD_EMOJI, client.get_user(BOT_USER_ID))
+                        await msg.remove_reaction(UnicodeEmoji.ARROW_BACKWARD_EMOJI.value, client.user)
                     else:
                         pic_dict = pic_msg[0].to_dict()
                         pic_dict["description"] = pic.attachments[0].filename if (len(pic.attachments) > 0) else pic.content[pic.content.rfind('/')+1:]
@@ -259,10 +110,10 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                         pic_embed = discord.Embed.from_dict(pic_dict)
                         await msg.edit(embed=pic_embed)
                     await re.remove(payload.member)
-                    if ARROW_FORWARD_EMOJI not in [str(r.emoji)[0] for r in msg.reactions]:
-                        await msg.add_reaction(ARROW_FORWARD_EMOJI)
+                    if UnicodeEmoji.ARROW_FORWARD_EMOJI.value not in [str(r.emoji)[0] for r in msg.reactions]:
+                        await msg.add_reaction(UnicodeEmoji.ARROW_FORWARD_EMOJI.value)
                         break
-                elif str(re.emoji)[0] == ARROW_FORWARD_EMOJI:
+                elif str(re.emoji)[0] == UnicodeEmoji.ARROW_FORWARD_EMOJI.value:
                     pic = await find_pic(channel=channel_id, after_date=pic_msg[0].timestamp, old_to_new=True, target_id = target.id)
                     if ((pic) == None) or (pic.created_at < (datetime(now().year, now().month, now().day) - timedelta(days=30*6))):
                         pic_dict = pic_msg[0].to_dict()
@@ -272,7 +123,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                         pic_dict.update({"image": {"url": ""}})
                         pic_embed = discord.Embed.from_dict(pic_dict)
                         await msg.edit(embed=pic_embed)
-                        await msg.remove_reaction(ARROW_FORWARD_EMOJI, client.get_user(BOT_USER_ID))
+                        await msg.remove_reaction(UnicodeEmoji.ARROW_FORWARD_EMOJI.value, client.user)
                     else:
                         pic_dict = pic_msg[0].to_dict()
                         pic_dict["description"] = pic.attachments[0].filename if (len(pic.attachments) > 0) else pic.content[pic.content.rfind('/')+1:]
@@ -283,74 +134,256 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                         pic_embed = discord.Embed.from_dict(pic_dict)
                         await msg.edit(embed=pic_embed)
                     await re.remove(payload.member)
-                    if ARROW_BACKWARD_EMOJI not in [str(r.emoji)[0] for r in msg.reactions]:
-                        await msg.remove_reaction(ARROW_FORWARD_EMOJI, client.get_user(BOT_USER_ID))
-                        await msg.add_reaction(ARROW_BACKWARD_EMOJI)
-                        await msg.add_reaction(ARROW_FORWARD_EMOJI)
+                    if UnicodeEmoji.ARROW_BACKWARD_EMOJI.value not in [str(r.emoji)[0] for r in msg.reactions]:
+                        await msg.remove_reaction(UnicodeEmoji.ARROW_FORWARD_EMOJI.value, client.user)
+                        await msg.add_reaction(UnicodeEmoji.ARROW_BACKWARD_EMOJI.value)
+                        await msg.add_reaction(UnicodeEmoji.ARROW_FORWARD_EMOJI.value)
                         break
         return
 
-    if (msg.author == client.get_user(BOT_USER_ID)) and (msg.content.startswith(BUG_REPORT_QUESTION)) and (not(payload.member == client.get_user(BOT_USER_ID))):
-        if str(payload.emoji) == CIRCLE_EMOJI:
+    if (msg.author == client.user) and (msg.content.startswith(InfoText.BUG_REPORT_QUESTION.value)) and (payload.member != client.user):
+        if str(payload.emoji) == UnicodeEmoji.CIRCLE_EMOJI.value:
             await msg.clear_reactions()
-            await (await client.fetch_channel(INFO_CHANNEL_ID)).send(f"**[BUG] {payload.member.mention} reported a bug! Time: {now().isoformat()}\nreason: {msg.content[msg.content.find('reason')+6:]}\nbug report link: {msg.jump_url}**")
+            await (await client.fetch_channel(ID.INFO_CHANNEL_ID.value)).send(f"**[BUG] {await client.fetch_user(payload.user_id)} {payload.member.mention} reported a bug! Time: {now().isoformat()}\nreason: {msg.content[msg.content.find('reason')+8:]}\nbug report link: {msg.jump_url}**")
             await msg.edit(content="[INFO] bug reported! the creator will soon ask for further info")
-        elif str(payload.emoji) == CROSS_EMOJI:
+        elif str(payload.emoji) == UnicodeEmoji.CROSS_EMOJI.value:
             await msg.clear_reactions()
             await msg.edit(content="[INFO] bug report canceled")
         return
 
-    if (msg.content == RATING_OPTIN_QUESTION) and (msg.author == client.get_user(BOT_USER_ID)) and (payload.member == msg.mentions[0]):
-        if str(payload.emoji) == CIRCLE_EMOJI:
+    if (msg.content == InfoText.RATING_OPTIN_QUESTION.value) and (msg.author == client.user) and (payload.member == msg.mentions[0]):
+        if str(payload.emoji) == UnicodeEmoji.CIRCLE_EMOJI.value:
             await msg.clear_reactions()
             await msg.edit(content="[INFO] you're now opt in to the rating system")
             await User_Ratings.init(payload.member.id)
-        elif str(payload.emoji) == CROSS_EMOJI:
+        elif str(payload.emoji) == UnicodeEmoji.CROSS_EMOJI.value:
             await msg.clear_reactions()
             await msg.edit(content="[INFO] opt in cancelled")
         return
 
+
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
-    msg = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    if (msg.created_at < (now() - timedelta(hours=6))) or (payload.member.bot):
-        return
-    
-    if payload.message_id != role_message_id:
-        return
-
     guild = client.get_guild(payload.guild_id)
-    if guild is None:
+    if (member := guild.get_member(payload.user_id)).bot:
+        return
+    channel = guild.get_channel(payload.channel_id)
+    msg = await channel.fetch_message(payload.message_id)
+    
+    if str(payload.message_id) in await Role.get_msg(str(payload.guild_id)):
+        await assign_role(str(payload.emoji), member, guild, channel, remove=True)
+    
+    if (msg.created_at < (now() - timedelta(hours=6))):
+        for r in msg.reactions:
+            if r.me:
+                await r.clear()
         return
 
+
+
+
+
+async def check_cd(message, author, channel, content):
+    if str(channel.id) in (await CD.get_exceptions()):
+        special_counter = await CD.get_special_counter()
+        special_msg_count = await CD.get_special()
+        
+        if special_counter >= special_msg_count:
+            if (content in ("[ru] rm cd", "[ru] remove cooldown", "[ru] cooldown")) and ((author.id == ID.MY_USER_ID.value) or (author.guild_permissions.administrator)):
+                await CD.reset_special_counter()
+                await channel.send("[INFO] cooldown removed")
+            elif special_counter == special_msg_count:
+                await CD.add_special_counter()
+                await channel.send("[ERR] message limit reached, bot on cooldown, ask a moderator or the creator to remove the cd")
+            return
+        else:
+            return True
+    elif author.bot:
+        return
+
+    return False
+
+
+async def rating(message, author, channel, content, mentions):
+    if len(mentions) != 1:
+        await message.reply("please mention 1 and only 1 user")
+        return
+
+    receiver = mentions[0]
+    if not await User_Ratings.check_user(author.id):
+        optinmsg = await message.reply(InfoText.RATING_OPTIN_QUESTION.value)
+        await optinmsg.add_reaction(UnicodeEmoji.CIRCLE_EMOJI.value)
+        await optinmsg.add_reaction(UnicodeEmoji.CROSS_EMOJI.value)
+    elif not await User_Ratings.check_user(receiver.id):
+        await message.reply(f"[ERR] {receiver} hasn't agree to opt in to the rating system")
+    elif mentions[0] == author:
+        await message.reply("you can't rate yourself")
+    elif (change := content.count(UnicodeEmoji.STAR_EMOJI.value)) < 1 or change > 5:
+        await message.reply("you can rate 1 to 5 stars")
+    else:
+        rating = await User_Ratings.rate(receiver=receiver.id, rater=author.id, change=change)
+        if rating == -1:
+            cd = await User_Ratings.check_time(receiver.id, author.id)
+            await message.reply(f"you are on cooldown: {cd.seconds // 60}:{cd.seconds % 60} left")
+        elif rating > 5:
+            await channel.send(f"[INFO] {receiver} already has a maximum rating of 5.000!")
+        elif rating < 1:
+            await channel.send(f"[INFO] {receiver} already has a minimum rating of 1.000!")
+        else:
+            await channel.send(f"[INFO] {receiver} now has a rating of {eval(format(rating, '.3f'))}!")
+
+
+async def info(guild, channel, content):
+    if (content == UnicodeEmoji.FLAG_RU.value) and ((guild.id == ID.HOMIE_SERVER_ID.value) or (guild.id == ID.TEST_SERVER_ID.value)):
+        await channel.send("hey its the flag of ru")
+    await channel.send(f"rubot v1.3 created by {await client.fetch_user(ID.MY_USER_ID.value)} {(await client.fetch_user(ID.MY_USER_ID.value)).mention} with discordpy{InfoText.INFO.value}")
+
+
+async def first_schedule(guild, channel, mentions):
+    if len(mentions) != 1:
+        await channel.send("[ERR] please specify one user and one only")
+    else:
+        channel_id = ID.HOMIE_SCHEDULES_CHANNEL_ID.value if (guild.id == ID.HOMIE_SERVER_ID.value) else ID.TEST_CHANNEL_ID.value
+        pic_info_msg = await channel.send(f"[INFO] looking for images sent by <{mentions[0].display_name}> in {client.get_channel(channel_id).mention}, please wait patiently as there are lots of messages!")
+        target = mentions[0]
+        pic = await find_pic(channel = channel_id, target_id = target.id)
+        if pic == None:
+            await pic_info_msg.edit("[INFO] no images found!")
+        else:
+            pic_dict = {
+                "title": "schedule finder",
+                "description": "",
+                "url": pic.jump_url,
+                "timestamp": pic.created_at.isoformat(),
+                "color": 65535,
+                "footer": {
+                    "text": "if more than 1 image is found, use the arrow emojis to see other images"
+                    },
+                "image": {
+                    "url": ""
+                    },
+                "author": {
+                    "name": target.name,
+                    "icon_url": f"https://cdn.discordapp.com/avatars/{target.id}/{target.avatar}.png"
+                    }
+                }
+            pic_dict["description"] = pic.attachments[0].filename if (len(pic.attachments) > 0) else pic.content[pic.content.rfind('/')+1:]
+            pic_dict["image"]["url"] = pic.attachments[0].url if (len(pic.attachments) > 0) else pic.content[pic.content.find("https://cdn.discordapp.com/attachments"):pic.content.find(".png")+4]
+            pic_embed = discord.Embed.from_dict(pic_dict)
+            await pic_info_msg.edit(embed=pic_embed)
+            await pic_info_msg.add_reaction(UnicodeEmoji.ARROW_BACKWARD_EMOJI.value)
+            await pic_info_msg.add_reaction(UnicodeEmoji.ARROW_FORWARD_EMOJI.value)
+
+
+async def bug(channel, content):
+    if (randint(1,100) == 69):
+        await channel.send("provide ur credit card no. and the code on the back and ur social security no. to continue", delete_after=5.0)
+    bugq = await channel.send(f"""
+{InfoText.BUG_REPORT_QUESTION.value}
+react to auto-send a bug report directly, or contact the creator here: {await client.fetch_user(ID.MY_USER_ID.value)} {(await client.fetch_user(ID.MY_USER_ID.value)).mention}
+reason: `{content[content.find('bug')+4:]}`
+""")
+    await bugq.add_reaction(UnicodeEmoji.CIRCLE_EMOJI.value)
+    await bugq.add_reaction(UnicodeEmoji.CROSS_EMOJI.value)
+
+
+async def role(message, guild, content):
+    lines = content.splitlines()
+    lines.pop(0)
+    if len(lines) < 1:
+        await message.reply(f"[ERR] no emoji and roles found! check format using `[ru] help` command")
+        return
+    for l in lines:
+        r = re.compile(r"((<:\w{2,}:\d{18}>)|(.{1,4})) *- *<@&\d{18}>")
+        if (r.match(l) == None):
+            await message.reply(InfoText.ROLE_ERR.value)
+            return
+        try:
+            emojistr, rolestr = l.split(sep="-", maxsplit=1)
+        except ValueError:
+            await message.reply(InfoText.ROLE_ERR.value)
+            return
+        emoji = emojistr.strip()
+        rid = int(rolestr.strip()[3:21])
+        try:
+            await message.add_reaction(emoji)
+        except HTTPException:
+            await message.reply("[ERR] invalid emoji! try using a different emoji")
+            await message.clear_reactions()
+            return
+        await Role.add_role(emoji, str(rid), str(guild.id))
+    await Role.add_msg(str(guild.id), str(message.id))
+
+async def funny_number(message, content, mentions):
+    nicecount = content.count("69") + content.count("420")
+    
+    if len(mentions) != 0:
+        for m in mentions:
+            nicecount -= (str(m.id).count("69") + str(m.id).count("420"))
+    for i in range(len(content)):
+        left = content.find("<", i)
+        right = content.find(">", left)
+        sub = content[left:right]
+        nicecount -= (sub.count("69") + sub.count("420"))
+        i = right
+        
+    nicestr = ""
+    for i in range(nicecount):
+        nicestr += "nice "
+    if len(nicestr) != 0:
+        await message.reply(nicestr)
+
+
+async def im_joke(message, content):
+    match = re.finditer(r"\b((i('|’|)m)|i\s+am)\s+.", content, re.I)
+    for m in match:
+        if len(content[m.end()-1:]) <= 100:
+            await message.reply(f"hi {content[m.end()-1:]}!")
+            break
+
+async def flip_car(message, content, special):
+    if (content.count(UnicodeEmoji.CAR_EMOJI.value) > 1):
+        await message.reply("imma run a car over you the next time you try to spam")
+    else:
+        await message.reply(UnicodeEmoji.CAR_EMOJI_FLIPPED.value)
+        await CD.add_counter(special)
+
+
+# adapted from the example https://github.com/Rapptz/discord.py/blob/d30fea5b0dcba9cd130026b56ec01e78bd788aff/examples/reaction_roles.py
+async def assign_role(emoji, member, guild, channel, *, remove):
     try:
-        role_id = emoji_to_role[payload.emoji]
+        role_id = await Role.get_role(str(guild.id), str(emoji))
     except KeyError:
         return
 
-    role = guild.get_role(role_id)
+    role = guild.get_role(int(role_id))
     if role is None:
         return
 
-    member = guild.get_member(payload.user_id)
     if member is None:
         return
 
     try:
-        await member.remove_roles(role)
-    except discord.HTTPException:
+        await member.remove_roles(role) if remove else await member.add_roles(role)
+    except discord.HTTPException as ex:
         # If we want to do something in case of errors we'd do it here.
-        pass
+        if ex.code == 50013:
+            await channel.send(f"[ERR] the bot lacks permission to assign roles, please ask the moderators to place the bot higher on the role hierarchy", delete_after=5.0)
+        else:
+            await channel.send(f"[ERR] unexpected error, please report to the bot creator by using the `[ru] bug (reason)` command", delete_after=5.0)
+            raise
+    else:
+        if channel is not None:
+                await channel.send(f"[INFO] removed the role <{role.name}> from the user {member.mention}!" if remove
+                                   else f"[INFO] added the role <{role.name}> to the user {member.mention}!",
+                                   delete_after=5.0)
 
-    channel = guild.get_channel(payload.channel_id)
-    if channel is not None:
-        await channel.send(f"[INFO] removed the role <{role.name}> from the user <{member.display_name}>!", delete_after=5.0)
 
 async def find_pic(*, channel,
                    before_date = None,
                    after_date = datetime(now().year, now().month, now().day) - timedelta(days=(30*6)),
                    old_to_new = False,
-                   target_id = MY_USER_ID
+                   target_id = ID.MY_USER_ID.value
                    ):
     target = client.get_user(target_id)
     found = False
@@ -370,4 +403,9 @@ async def find_pic(*, channel,
             break
     return pic
 
-client.run("token")
+
+
+
+
+test_mode = input("run as test?")
+client.run(Token.MAIN_BOT.value if (test_mode.lower() in ("n", "no", "m", "main", "f", "false", "x")) else Token.TEST_BOT.value)
