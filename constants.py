@@ -51,7 +51,7 @@ emoji - @role
 """
     INFO = """
 help:```yaml
-info:       "[ru]" or ":flag_ru:"
+info:       "[ru]", "[ru] help", "[ru] menu", or "[ru] info"
 schedule:   "[ru] schedule *(mention someone)"
 bug:        "[ru] bug (message)"
 rating:     "[ru] rating *(user) *(1-5 star emojis)"
