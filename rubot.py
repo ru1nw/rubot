@@ -1,3 +1,4 @@
+from rarity import Rarity
 from cd import CD
 from user_ratings import User_Ratings
 from role import Role
@@ -45,7 +46,10 @@ async def on_message(message):
         content = content[5:]
         old = message
         e = None if (len(old.embeds) < 1) else old.embeds[0]
-        message = await channel.send(content, embed=e, files=[await f.to_file() for f in old.attachments], reference=old.reference)
+        message = await channel.send(
+            content, embed=e,
+            files=[await f.to_file() for f in old.attachments],
+            reference=old.reference)
         await old.delete()
     if content.startswith("[ru]"):
         if content.startswith("[ru] rating"):
@@ -65,13 +69,21 @@ async def on_message(message):
             else:
                 await message.reply(
                     "[ERR] this is an administrator-only command!")
+        elif message.content.startswith("[ru] rarity"):
+            await rarity(message, guild, channel, content)
 
     # jokes
     if ("69" in content) or ("420" in content):
         await funny_number(message, content, mentions)
-    await im_joke(message, content)
+    if ((await Rarity.get(guild.id)) > randint(0, 99)):
+        await im_joke(message, content)
     if UnicodeEmoji.CAR_EMOJI.value in content:
         await flip_car(message, content, special)
+    if content.lower() in ("uwu", "u3u"):
+        if randint(1, 100) == 69:
+            await channel.send("U∃U")
+        else:
+            await channel.send("uwu")
 
 
 
@@ -433,6 +445,16 @@ invalid emoji! try using a different emoji")
             return
         await Role.add_role(emoji, str(rid), str(guild.id))
     await Role.add_msg(str(guild.id), str(message.id))
+
+
+async def rarity(message, guild, channel, content):
+    if ((not ((content := content[12:]).isdigit()))
+            or (percent := eval(content)) > 100):
+        await message.reply("please enter a number from 0 ~ 100!")
+        return
+    await Rarity.set(guild.id, percent)
+    await channel.send(f"[INFO] rarity set to {percent}%")
+
 
 async def funny_number(message, content, mentions):
     nicecount = content.count("69") + content.count("420")
