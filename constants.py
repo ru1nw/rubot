@@ -60,6 +60,7 @@ info:       "[ru]", "[ru] help", "[ru] menu", or "[ru] info"
 schedule:   "[ru] schedule *(mention someone)"
 bug:        "[ru] bug (message)"
 rating:     "[ru] rating *(user) *(1-5 star emojis)"
+download:   "[ru] dl *(a/v) *(url)"
 ```mod:```yaml
 remove cooldown: "[ru] remove cooldown" or "[ru] cooldown"
 role:       "[ru] role"
