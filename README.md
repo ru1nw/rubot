@@ -8,6 +8,7 @@ rubot v1.3 created with discordpy
  - schedule: `[ru] schedule *(mention someone)`
  - bug: `[ru] bug (message)`
  - rating: `[ru] rating *(user) *(1-5 star emojis)`
+ - download: `[ru] dl *(a/v) *(url)`
 
 *required
 
