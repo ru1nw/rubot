@@ -1,6 +1,6 @@
 # rubot
 
-rubot v1.3 created with discordpy
+rubot v1.4 created with discordpy
 
 ## help
 
