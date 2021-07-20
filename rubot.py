@@ -1,3 +1,4 @@
+from vid_dl import dl, DlError
 from rarity import Rarity
 from cd import CD
 from user_ratings import User_Ratings
@@ -54,23 +55,25 @@ async def on_message(message):
     if content.startswith("[ru]"):
         if content.startswith("[ru] rating"):
             await rating(message, author, channel, content, mentions)
-        elif message.content in ("[ru]", "[ru] help",
+        elif content in ("[ru]", "[ru] help",
                                  "[ru] menu", "[ru] info"):
             await info(guild, channel, content)
-        elif ((message.guild.id in (ID.HOMIE_SERVER_ID.value,
+        elif ((guild.id in (ID.HOMIE_SERVER_ID.value,
                                     ID.TEST_SERVER_ID.value))
-                  and message.content.startswith("[ru] schedule")):
+                  and content.startswith("[ru] schedule")):
             await first_schedule(guild, channel, mentions)
-        elif message.content.startswith("[ru] bug"):
+        elif content.startswith("[ru] bug"):
             await bug(channel, content)
-        elif message.content.startswith("[ru] role"):
+        elif content.startswith("[ru] role"):
             if author.permissions_in(channel).administrator:
                 await role(message, guild, content)
             else:
                 await message.reply(
                     "[ERR] this is an administrator-only command!")
-        elif message.content.startswith("[ru] rarity"):
+        elif content.startswith("[ru] rarity"):
             await rarity(message, guild, channel, content)
+        elif content.startswith("[ru] dl"):
+            await download(message, channel)
 
     # jokes
     if ("69" in content) or ("420" in content):
@@ -83,7 +86,7 @@ async def on_message(message):
         if randint(1, 100) == 69:
             await channel.send("U∃U")
         else:
-            await channel.send("uwu")
+            await channel.send(content)
 
 
 
@@ -342,7 +345,7 @@ async def info(guild, channel, content):
             and ((guild.id == ID.HOMIE_SERVER_ID.value)
                      or (guild.id == ID.TEST_SERVER_ID.value))):
         await channel.send("hey its the flag of ru")
-    await channel.send(f"rubot v1.3 created by \
+    await channel.send(f"rubot v1.4 created by \
 {await client.fetch_user(ID.MY_USER_ID.value)} \
 {(await client.fetch_user(ID.MY_USER_ID.value)).mention} with discordpy\
 {InfoText.INFO.value}")
@@ -454,6 +457,42 @@ async def rarity(message, guild, channel, content):
         return
     await Rarity.set(guild.id, percent)
     await channel.send(f"[INFO] rarity set to {percent}%")
+
+
+async def download(message, channel):
+    args = message.content[8:].split()
+    if len(args) != 2:
+        await message.reply("syntax: `[ru] dl *(a/v) *(url)`")
+        return
+    elif args[0] == "a":
+        audio = True
+    elif args[0] == "v":
+        audio = False
+    else:
+        return
+    
+    try:
+        path = await dl(args[1], audio=audio)
+    except DlError as err:
+        await message.reply(err)
+        return
+    except Exception as ex:
+        await message.reply(f"[ERR] unexpected error, \
+please report to the creator using `[ru] bug`, error:```{ex}```")
+        return
+    else:
+        try:
+            await channel.send(file=discord.File(fp=(path)),
+                               reference=message)
+        except discord.errors.HTTPException:
+            try:
+                await channel.send(
+                        file=discord.File(fp=(await dl(args[1],
+                                                       audio=audio,
+                                                       worst=True))),
+                        reference=message)
+            except discord.errors.HTTPException:
+                await message.reply("[ERR] file too large")
 
 
 async def funny_number(message, content, mentions):
