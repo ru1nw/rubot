@@ -35,18 +35,18 @@ class UnicodeEmoji(Enum):
 @unique
 class InfoText(Enum):
     BUG_REPORT_QUESTION = "[INFO] do you want to report a bug?"
-    RATING_OPTIN_QUESTION = """[ERR] \
-you are not opt in to the rating system; \
-do you want to opt in to the rating system?
-the bot will record your discord information including \
-id, name, and the time when you send a rating;
-none of these information will be used \
-other than this user rating feature for this bot.
-react to circle if you want to opt in, \
-or react to cross if you do not want to opt in.
-**warning**: the algorithm of this rating system is subjected to change, \
-so the ratings is very likely to be reset in the future
-"""
+    RATING_OPTIN_QUESTION = "".join((
+        "[ERR] you are not opt in to the rating system; ",
+        "do you want to opt in to the rating system?\n",
+        "the bot will record your discord information including ",
+        "id, name, and the time when you send a rating;\n",
+        "none of these information will be used ",
+        "other than this user rating feature for this bot.\n",
+        "react to circle if you want to opt in, ",
+        "or react to cross if you do not want to opt in.\n",
+        "**warning**: ",
+        "the algorithm of this rating system is subjected to change, ",
+        "so the ratings is very likely to be reset in the future"))
     ROLE_ERR = """
 [ERR] wrong format! format should be ```
 [ru] role
