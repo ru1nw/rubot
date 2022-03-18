@@ -2,6 +2,8 @@
 
 rubot v1.4 created with discordpy
 
+>> rubot "ru" the world -- felix
+
 ## help
 
  - info: `[ru]`, `[ru] help`, `[ru] menu`, or `[ru] info`
