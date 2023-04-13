@@ -78,4 +78,4 @@ class Token(Enum):
 @unique
 class Path(Enum):
     RUBOT_FIREBASE_CERTIFICATE = u"\
-./dope-ccbea-firebase-adminsdk-plkh6-3f960e6795.json"
+./FIREBASE-CERT.json"
