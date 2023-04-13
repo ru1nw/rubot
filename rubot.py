@@ -1,3 +1,4 @@
+from movie import movie
 from vid_dl import dl, DlError
 from rarity import Rarity
 from cd import CD
@@ -5,19 +6,20 @@ from user_ratings import User_Ratings
 from role import Role
 from constants import ID, UnicodeEmoji, InfoText, Token
 import discord
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from random import randint
 import re
 now = datetime.utcnow
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.members = True
 client = discord.Client(intents=intents)
 
 
 @client.event
 async def on_ready():
-    reason = input("reason for restart>>>")
+    reason = ''
+    #reason = input("reason for restart>>>")
     
     print("We have logged in as {0.user}".format(client))
 
@@ -65,7 +67,7 @@ async def on_message(message):
         elif content.startswith("[ru] bug"):
             await bug(channel, content)
         elif content.startswith("[ru] role"):
-            if author.permissions_in(channel).administrator:
+            if channel.permissions_for(author).administrator:
                 await role(message, guild, content)
             else:
                 await message.reply(
@@ -74,6 +76,10 @@ async def on_message(message):
             await rarity(message, guild, channel, content)
         elif content.startswith("[ru] dl"):
             await download(message, channel)
+        elif content.startswith("[ru] join"):
+            await join(guild, channel)
+        elif content.startswith("[ru] movie"):
+            await movie_list(message, guild, channel, message.content)
 
     # jokes
     if ("69" in content) or ("420" in content):
@@ -104,11 +110,13 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         await assign_role(
             str(payload.emoji), member, guild, channel, remove=False)
         
-    if (msg.created_at < (now() - timedelta(hours=6))):
+    '''
+    if msg.created_at < (datetime.now(timezone.utc) - timedelta(hours=6)):
         for r in msg.reactions:
             if r.me:
                 await r.clear()
         return
+    '''
     
     if (len(pic_msg := msg.embeds) > 0
             and (payload.user_id != client.user.id)
@@ -268,7 +276,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         await assign_role(str(payload.emoji), member,
                           guild, channel, remove=True)
     
-    if (msg.created_at < (now() - timedelta(hours=6))):
+    if msg.created_at < (datetime.now(timezone.utc) - timedelta(hours=6)):
         for r in msg.reactions:
             if r.me:
                 await r.clear()
@@ -495,6 +503,69 @@ please report to the creator using `[ru] bug`, error:```{ex}```")
                 await message.reply("[ERR] file too large")
 
 
+async def join(guild, channel):
+    d = {}
+    for m in guild.members:
+        d[m.joined_at] = m
+    dm = {}
+    for i in sorted(d):
+        dm[i]=d[i]
+    out = ""
+    for m in dm:
+        out += str(m) + " - " + str(dm[m]) + '\n'
+    out = out[:len(out)-1]
+    outl = out.split('\n')
+    actout = ""
+    for i in range(len(outl)):
+        if len(actout + outl[i]) < 1990:
+            actout += outl[i] + '\n'
+        else:
+            await channel.send("```\n" + actout + "```")
+            actout = outl[i] + '\n'
+    actout = actout[:len(out)-1]
+    if actout != "":
+        await channel.send("```\n" + actout + "```")
+
+
+async def movie_list(message, guild, channel, content):
+    msg = content[11:].split(maxsplit=1)
+    if len(msg) == 0:
+        await message.reply(
+            "[ERR] syntax: `[ru] movie list/add/watched [name] [url]`")
+    elif msg[0].lower() == "list":
+        if l := await movie.list(guild.id):
+            out = "__**movie list**__\n"
+            for d in l:
+                if d[u'watched']: out += "~~"
+                out += d[u'name']
+                if d[u'date']: out += f"({d[u'date'][:4]})"
+                if d[u'length']: out += f": {d[u'length']}"
+                if d[u'watched']: out += "~~"
+                out += "\n"
+            await channel.send(out)
+        else:
+            await message.reply("[ERR] no movies added!")
+        return
+    elif len(msg) > 1:
+        if ((i := msg[1].find(" http")) == -1): i = len(content)
+        if msg[0].lower() == "add":
+            await message.reply(
+                await movie.add(guild.id,
+                                msg[1][:i].strip(),
+                                msg[1][i+1:].strip()))
+            return
+        elif msg[0].lower() == "watched":
+            await message.reply(
+                await movie.watched(guild.id, msg[1][:i].strip()))
+            return
+        else:
+            await message.reply(
+                "[ERR] syntax: `[ru] movie list/add/watched [name] [url]`")
+    else:
+        await message.reply(
+            "[ERR] syntax: `[ru] movie list/add/watched [name] [url]`")
+
+
 async def funny_number(message, content, mentions):
     nicecount = content.count("69") + content.count("420")
     
@@ -609,8 +680,9 @@ async def find_pic(*, channel,
 
 
 
-test_mode = input("run as test?")
+'''test_mode = input("run as test?")
 if (test_mode.lower() in ("n", "no", "m", "main", "f", "false", "x")):
     client.run(Token.MAIN_BOT.value)
 else:
-    client.run(Token.TEST_BOT.value)
+    client.run(Token.TEST_BOT.value)'''
+client.run(Token.MAIN_BOT.value)
